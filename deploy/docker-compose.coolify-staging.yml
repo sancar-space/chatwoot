@@ -20,14 +20,14 @@
 #   A API key da Baileys é gerada automaticamente via SERVICE_PASSWORD_64_DEFAULTAPIKEY.
 #   Após o deploy, conecte um número no Chatwoot em Settings → Inboxes → Add Inbox → WhatsApp.
 #
-# Stack: fazer.ai Chatwoot + Baileys API + n8n (sem Evolution API)
+# Stack: Sancar Chatwoot + Baileys API + n8n (sem Evolution API)
 # Imagens:
-#   ghcr.io/fazer-ai/chatwoot:latest   — fork fazer.ai com WhatsApp nativo, PT-BR, chat interno
-#   ghcr.io/fazer-ai/baileys-api:latest — bridge WhatsApp (Baileys) com Redis e API REST
+#   chatwoot/chatwoot:v4.19.0              — Chatwoot upstream oficial (padrão até ghcr.io/sancar-space/chatwoot estar publicado)
+#   ghcr.io/sancar-space/baileys-api:latest — bridge WhatsApp (Baileys) — requer build do repo sancar-space/baileys-api
 
 services:
   rails:
-    image: 'ghcr.io/fazer-ai/chatwoot:latest'
+    image: 'chatwoot/chatwoot:v4.19.0'
     pull_policy: always
     restart: unless-stopped
     depends_on:
@@ -74,7 +74,7 @@ services:
       start_period: 120s
 
   sidekiq:
-    image: 'ghcr.io/fazer-ai/chatwoot:latest'
+    image: 'chatwoot/chatwoot:v4.19.0'
     pull_policy: always
     restart: unless-stopped
     depends_on:
@@ -116,7 +116,7 @@ services:
       retries: 10
 
   baileys-api:
-    image: 'ghcr.io/fazer-ai/baileys-api:latest'
+    image: 'ghcr.io/sancar-space/baileys-api:latest'
     pull_policy: always
     restart: unless-stopped
     depends_on:
