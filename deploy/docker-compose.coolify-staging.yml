@@ -1,0 +1,205 @@
+# Stella Staging — Coolify paste deploy
+# Repo: sancar-space/chatwoot  Branch: develop
+# Compose file path: deploy/docker-compose.coolify-staging.yml
+#
+# Como usar no Coolify:
+#   New Project → "Stella Staging"
+#   New Resource → Applications → Docker Compose → Cole este arquivo
+#
+# Após criar o serviço, configure os domínios no Coolify:
+#   rails       → chat.stella.sancar.space   (port 3000)
+#   n8n         → n8n.stella.sancar.space     (port 5678)
+#
+# Variáveis obrigatórias a preencher no Coolify (as SERVICE_* são geradas automaticamente):
+#   FRONTEND_URL, N8N_HOST
+#   N8N_ENCRYPTION_KEY
+#   MAILER_SENDER_EMAIL (ex: stella@sancar.space)
+#   RESEND_API_KEY (opcional — para envio de e-mail)
+#
+# WhatsApp (Baileys API):
+#   A API key da Baileys é gerada automaticamente via SERVICE_PASSWORD_64_DEFAULTAPIKEY.
+#   Após o deploy, conecte um número no Chatwoot em Settings → Inboxes → Add Inbox → WhatsApp.
+#
+# Stack: Sancar Chatwoot + Baileys API + n8n (sem Evolution API)
+# Imagens:
+#   chatwoot/chatwoot:v4.19.0              — Chatwoot upstream oficial (padrão até ghcr.io/sancar-space/chatwoot estar publicado)
+#   ghcr.io/sancar-space/baileys-api:latest — bridge WhatsApp (Baileys) — requer build do repo sancar-space/baileys-api
+
+services:
+  rails:
+    image: 'chatwoot/chatwoot:v4.19.0'
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - chatwoot_storage:/app/storage
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+      - DEFAULT_LOCALE=pt_BR
+      - FRONTEND_URL=${FRONTEND_URL:-${SERVICE_FQDN_RAILS}}
+      - INTERNAL_HOST_URL=http://rails:3000
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-${SERVICE_PASSWORD_64_SECRETKEYBASE}}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-chatwoot_staging}
+      - POSTGRES_USERNAME=${POSTGRES_USERNAME:-${SERVICE_USER_POSTGRES}}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-${SERVICE_PASSWORD_POSTGRES}}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-${SERVICE_PASSWORD_REDIS}}
+      # Baileys WhatsApp provider
+      - BAILEYS_PROVIDER_DEFAULT_CLIENT_NAME=Stella
+      - BAILEYS_PROVIDER_DEFAULT_URL=http://baileys-api:3025
+      - BAILEYS_PROVIDER_DEFAULT_API_KEY=${BAILEYS_PROVIDER_DEFAULT_API_KEY:-${SERVICE_PASSWORD_64_DEFAULTAPIKEY}}
+      - BAILEYS_PROVIDER_USE_INTERNAL_HOST_URL=true
+      - MAILER_SENDER_EMAIL=${MAILER_SENDER_EMAIL:-stella@sancar.space}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+    entrypoint: docker/entrypoints/rails.sh
+    command:
+      - sh
+      - '-c'
+      - 'bundle exec rails db:chatwoot_prepare && exec bundle exec rails s -p 3000 -b 0.0.0.0'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- --header="Accept: text/html" http://127.0.0.1:3000/']
+      interval: 60s
+      timeout: 20s
+      retries: 10
+      start_period: 120s
+
+  sidekiq:
+    image: 'chatwoot/chatwoot:v4.19.0'
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      rails:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - chatwoot_storage:/app/storage
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+      - DEFAULT_LOCALE=pt_BR
+      - FRONTEND_URL=${FRONTEND_URL:-${SERVICE_FQDN_RAILS}}
+      - INTERNAL_HOST_URL=http://rails:3000
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-${SERVICE_PASSWORD_64_SECRETKEYBASE}}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-chatwoot_staging}
+      - POSTGRES_USERNAME=${POSTGRES_USERNAME:-${SERVICE_USER_POSTGRES}}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-${SERVICE_PASSWORD_POSTGRES}}
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-${SERVICE_PASSWORD_REDIS}}
+      - BAILEYS_PROVIDER_DEFAULT_CLIENT_NAME=Stella
+      - BAILEYS_PROVIDER_DEFAULT_URL=http://baileys-api:3025
+      - BAILEYS_PROVIDER_DEFAULT_API_KEY=${BAILEYS_PROVIDER_DEFAULT_API_KEY:-${SERVICE_PASSWORD_64_DEFAULTAPIKEY}}
+      - BAILEYS_PROVIDER_USE_INTERNAL_HOST_URL=true
+      - MAILER_SENDER_EMAIL=${MAILER_SENDER_EMAIL:-stella@sancar.space}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+    entrypoint: docker/entrypoints/sidekiq.sh
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    healthcheck:
+      test: ['CMD-SHELL', 'ps aux | grep [s]idekiq | grep -qv entrypoints']
+      interval: 20s
+      timeout: 20s
+      retries: 10
+
+  baileys-api:
+    image: 'ghcr.io/sancar-space/baileys-api:latest'
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - baileys_storage:/app/storage
+    environment:
+      - NODE_ENV=production
+      - REDIS_URL=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-${SERVICE_PASSWORD_REDIS}}
+      - LOG_LEVEL=info
+      - BAILEYS_LOG_LEVEL=error
+      - BAILEYS_PROVIDER_DEFAULT_API_KEY=${BAILEYS_PROVIDER_DEFAULT_API_KEY:-${SERVICE_PASSWORD_64_DEFAULTAPIKEY}}
+      - MEDIA_CLEANUP_ENABLED=true
+      - MEDIA_CLEANUP_INTERVAL_MS=3600000
+      - MEDIA_MAX_AGE_HOURS=24
+    command:
+      - sh
+      - '-c'
+      - 'bun manage-api-keys create user ${BAILEYS_PROVIDER_DEFAULT_API_KEY:-${SERVICE_PASSWORD_64_DEFAULTAPIKEY}} && bun start'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3025/status']
+      interval: 20s
+      timeout: 20s
+      retries: 10
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://${N8N_HOST}/
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-chatwoot_staging}
+      - DB_POSTGRESDB_SCHEMA=n8n
+      - DB_POSTGRESDB_USER=${POSTGRES_USERNAME:-${SERVICE_USER_POSTGRES}}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-${SERVICE_PASSWORD_POSTGRES}}
+      - EXECUTIONS_PROCESS=main
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USERNAME:-${SERVICE_USER_POSTGRES}}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-${SERVICE_PASSWORD_POSTGRES}}
+      - POSTGRES_DB=${POSTGRES_DB:-chatwoot_staging}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USERNAME:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD:-${SERVICE_PASSWORD_REDIS}}', '--maxmemory', '256mb', '--maxmemory-policy', 'allkeys-lru']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-${SERVICE_PASSWORD_REDIS}}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chatwoot_storage:
+  baileys_storage:
+  postgres_data:
+  redis_data:
+  n8n_data:
