@@ -53,6 +53,7 @@ class Whatsapp::Providers::WhatsappBaileysService < Whatsapp::Providers::BaseSer
     )
     if response.success?
       qr_data_url = response.parsed_response['qr']
+      baileys_status = response.parsed_response['status'] || 'connecting'
       if qr_data_url.present?
         whatsapp_channel.update!(provider_config: whatsapp_channel.provider_config.merge(
           'qr_data_url' => qr_data_url,
@@ -60,8 +61,12 @@ class Whatsapp::Providers::WhatsappBaileysService < Whatsapp::Providers::BaseSer
         ))
         { qr_data_url: qr_data_url, connection_status: 'qr_pending' }
       else
-        { qr_data_url: nil, connection_status: whatsapp_channel.provider_config['connection_status'] }
+        # QR not yet ready — return Baileys status so the UI can show "connecting..."
+        { qr_data_url: nil, connection_status: baileys_status }
       end
+    elsif response.code == 404
+      error_body = response.parsed_response rescue {}
+      { qr_data_url: nil, connection_status: 'error', error: error_body['error'] || response.body }
     else
       { qr_data_url: nil, connection_status: 'error', error: response.body }
     end
