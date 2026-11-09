@@ -53,6 +53,7 @@ export default {
       isBaileysConnecting: false,
       baileysQrLoading: false,
       baileysQrDataUrl: null,
+      baileysQrInterval: null,
     };
   },
   validations: {
@@ -213,16 +214,28 @@ export default {
         this.isSyncingTemplates = false;
       }
     },
+    baileysClearQrInterval() {
+      if (this.baileysQrInterval) {
+        clearInterval(this.baileysQrInterval);
+        this.baileysQrInterval = null;
+      }
+    },
     async baileysRefreshQr() {
+      if (this.baileysQrLoading) return;
       this.baileysQrLoading = true;
       try {
         const response = await whatsappChannel.baileysQr(this.inbox.id);
         if (response.data?.qr_data_url) {
           this.baileysQrDataUrl = response.data.qr_data_url;
+          if (!this.baileysQrInterval) {
+            this.baileysQrInterval = setInterval(() => this.baileysRefreshQr(), 25000);
+          }
         } else {
+          this.baileysClearQrInterval();
           useAlert('Nenhum QR code disponível no momento. Tente reconectar.');
         }
       } catch (error) {
+        this.baileysClearQrInterval();
         useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
       } finally {
         this.baileysQrLoading = false;
@@ -240,6 +253,9 @@ export default {
         this.isBaileysConnecting = false;
       }
     },
+  },
+  beforeDestroy() {
+    this.baileysClearQrInterval();
   },
 };
 </script>
