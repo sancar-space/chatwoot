@@ -334,6 +334,8 @@ Rails.application.routes.draw do
             post :set_agent_bot, on: :member
             delete :avatar, on: :member
             post :sync_templates, on: :member
+            get :baileys_qr, on: :member
+            post :baileys_connect, on: :member
             put :whatsapp_business_management_token, on: :member
             get :health, on: :member
             post :register_webhook, on: :member
