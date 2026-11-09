@@ -1,6 +1,7 @@
 # Publica a imagem Sancar CE no GitHub Container Registry.
 # Dispara em push para develop e em tags de versão (v*).
 # Usa GITHUB_TOKEN — nenhum secret adicional necessário.
+# Nota: arm64 temporariamente desativado (ubuntu-22.04-arm indisponível).
 
 name: Publish Sancar Chatwoot image
 
@@ -28,8 +29,6 @@ jobs:
         include:
           - platform: linux/amd64
             runner: ubuntu-latest
-          - platform: linux/arm64
-            runner: ubuntu-22.04-arm
     runs-on: ${{ matrix.runner }}
     env:
       GIT_REF: ${{ github.head_ref || github.ref_name }}
