@@ -26,7 +26,13 @@ class Whatsapp::BaileysConnectionUpdateService
 
   def update_connection_status
     status = @data[:status].to_s
-    base_config = @channel.provider_config.reject { |k, _| k == 'qr_data_url' }
+    # Only remove the qr_data_url when actually connected; keep it on disconnect
+    # so the UI can still show the QR if the user hasn't scanned it yet.
+    base_config = if status == 'open'
+                    @channel.provider_config.reject { |k, _| k == 'qr_data_url' }
+                  else
+                    @channel.provider_config
+                  end
 
     updates = { 'connection_status' => status }
     updates['connected_phone_number'] = @data[:phoneNumber] if @data[:phoneNumber].present?
