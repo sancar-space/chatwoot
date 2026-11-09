@@ -31,7 +31,7 @@ class Channel::Whatsapp < ApplicationRecord
   encrypts :business_management_token if Chatwoot.encryption_configured?
 
   # default at the moment is 360dialog lets change later.
-  PROVIDERS = %w[default whatsapp_cloud].freeze
+  PROVIDERS = %w[default whatsapp_cloud baileys].freeze
   before_validation :ensure_webhook_verify_token
 
   validates :provider, inclusion: { in: PROVIDERS }
@@ -42,6 +42,7 @@ class Channel::Whatsapp < ApplicationRecord
   after_update_commit :log_credentials_transfer, if: :saved_change_to_provider_config?
   before_destroy :teardown_webhooks
   after_commit :setup_webhooks, on: :create, if: :should_auto_setup_webhooks?
+  after_commit :setup_baileys_channel, on: :create, if: -> { provider == 'baileys' }
 
   def name
     'Whatsapp'
@@ -69,8 +70,11 @@ class Channel::Whatsapp < ApplicationRecord
   end
 
   def provider_service
-    if provider == 'whatsapp_cloud'
+    case provider
+    when 'whatsapp_cloud'
       Whatsapp::Providers::WhatsappCloudService.new(whatsapp_channel: self)
+    when 'baileys'
+      Whatsapp::Providers::WhatsappBaileysService.new(whatsapp_channel: self)
     else
       Whatsapp::Providers::Whatsapp360DialogService.new(whatsapp_channel: self)
     end
@@ -84,6 +88,11 @@ class Channel::Whatsapp < ApplicationRecord
 
   def serializable_hash(options = nil)
     super.except('business_management_token')
+  end
+
+  def update_provider_connection!(payload)
+    config = provider_config || {}
+    update!(provider_config: config.merge(payload.stringify_keys))
   end
 
   # Enables voice: turns calling on at Meta (idempotent), then re-registers webhooks
@@ -152,6 +161,8 @@ class Channel::Whatsapp < ApplicationRecord
   private
 
   def ensure_webhook_verify_token
+    return if provider == 'baileys'
+
     provider_config['webhook_verify_token'] ||= SecureRandom.hex(16) if provider == 'whatsapp_cloud'
   end
 
@@ -178,6 +189,8 @@ class Channel::Whatsapp < ApplicationRecord
   end
 
   def teardown_webhooks
+    return if provider == 'baileys'
+
     Whatsapp::WebhookTeardownService.new(self).perform
   end
 
@@ -186,6 +199,12 @@ class Channel::Whatsapp < ApplicationRecord
     # responses can reflect the real result instead of swallowing callback errors.
     explicitly_configured_sources = %w[embedded_signup manual_setup_v2]
     provider == 'whatsapp_cloud' && explicitly_configured_sources.exclude?(provider_config['source'])
+  end
+
+  def setup_baileys_channel
+    provider_service.setup_channel_provider
+  rescue StandardError => e
+    Rails.logger.error "[BAILEYS] Auto channel setup failed for channel #{id}: #{e.message}"
   end
 end
 
