@@ -45,6 +45,31 @@ class Whatsapp::Providers::WhatsappBaileysService < Whatsapp::Providers::BaseSer
     raise
   end
 
+  def fetch_qr
+    response = HTTParty.get(
+      "#{provider_url}/instances/#{instance_id}/qr",
+      headers: api_request_headers,
+      timeout: TIMEOUT
+    )
+    if response.success?
+      qr_data_url = response.parsed_response['qr']
+      if qr_data_url.present?
+        whatsapp_channel.update!(provider_config: whatsapp_channel.provider_config.merge(
+          'qr_data_url' => qr_data_url,
+          'connection_status' => 'qr_pending'
+        ))
+        { qr_data_url: qr_data_url, connection_status: 'qr_pending' }
+      else
+        { qr_data_url: nil, connection_status: whatsapp_channel.provider_config['connection_status'] }
+      end
+    else
+      { qr_data_url: nil, connection_status: 'error', error: response.body }
+    end
+  rescue HTTParty::Error, Net::OpenTimeout, Net::ReadTimeout => e
+    Rails.logger.error "[BAILEYS] fetch_qr error: #{e.message}"
+    { qr_data_url: nil, connection_status: 'error', error: e.message }
+  end
+
   def disconnect_channel_provider
     HTTParty.delete(
       "#{provider_url}/instances/#{instance_id}",
