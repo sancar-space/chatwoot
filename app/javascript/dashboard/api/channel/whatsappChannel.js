@@ -42,6 +42,14 @@ class WhatsappChannel extends ApiClient {
       `${this.baseUrl()}/whatsapp/manual/${inboxId}/setup_webhook`
     );
   }
+
+  baileysQr(inboxId) {
+    return axios.get(`${this.baseUrl()}/inboxes/${inboxId}/baileys_qr`);
+  }
+
+  baileysConnect(inboxId) {
+    return axios.post(`${this.baseUrl()}/inboxes/${inboxId}/baileys_connect`);
+  }
 }
 
 export default new WhatsappChannel();
