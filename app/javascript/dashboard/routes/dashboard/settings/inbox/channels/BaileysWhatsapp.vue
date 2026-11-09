@@ -36,7 +36,7 @@ const handleSubmit = async () => {
     const inbox = await store.dispatch('inboxes/createChannel', {
       name,
       channel: {
-        type: 'Channel::Whatsapp',
+        type: 'whatsapp',
         phone_number: normalizedPhone,
         provider: 'baileys',
         provider_config: providerConfig,
