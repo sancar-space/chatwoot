@@ -50,6 +50,9 @@ export default {
       isUpdatingAllowedDomains: false,
       isSettingDefaults: false,
       isReconfiguring: false,
+      isBaileysConnecting: false,
+      baileysQrLoading: false,
+      baileysQrDataUrl: null,
     };
   },
   validations: {
@@ -208,6 +211,33 @@ export default {
         useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
       } finally {
         this.isSyncingTemplates = false;
+      }
+    },
+    async baileysRefreshQr() {
+      this.baileysQrLoading = true;
+      try {
+        const response = await whatsappChannel.baileysQr(this.inbox.id);
+        if (response.data?.qr_data_url) {
+          this.baileysQrDataUrl = response.data.qr_data_url;
+        } else {
+          useAlert('Nenhum QR code disponível no momento. Tente reconectar.');
+        }
+      } catch (error) {
+        useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
+      } finally {
+        this.baileysQrLoading = false;
+      }
+    },
+    async baileysConnect() {
+      this.isBaileysConnecting = true;
+      this.baileysQrDataUrl = null;
+      try {
+        await whatsappChannel.baileysConnect(this.inbox.id);
+        useAlert('Aguardando QR code... atualize a página em alguns segundos.');
+      } catch (error) {
+        useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
+      } finally {
+        this.isBaileysConnecting = false;
       }
     },
   },
@@ -385,8 +415,63 @@ export default {
   </div>
   <div v-else-if="isAWhatsAppChannel && !isATwilioChannel">
     <div v-if="inbox.provider_config">
+      <!-- Baileys (QR Code) Section -->
+      <template v-if="inbox.provider === 'baileys'">
+        <SettingsFieldSection
+          label="Status da conexão WhatsApp"
+          :help-text="inbox.provider_config.connection_status === 'open' ? 'WhatsApp conectado.' : 'Escaneie o QR code com seu WhatsApp para conectar.'"
+        >
+          <div class="flex flex-col gap-4">
+            <div
+              v-if="inbox.provider_config.connection_status === 'open'"
+              class="flex items-center gap-2 text-green-600"
+            >
+              <span class="font-medium">✓ Conectado</span>
+              <span
+                v-if="inbox.provider_config.connected_phone_number"
+                class="text-sm text-n-slate-11"
+              >
+                ({{ inbox.provider_config.connected_phone_number }})
+              </span>
+            </div>
+            <div v-else>
+              <div
+                v-if="baileysQrDataUrl || inbox.provider_config.qr_data_url"
+                class="flex flex-col gap-3"
+              >
+                <p class="text-sm text-n-slate-11">
+                  Abra o WhatsApp no seu celular → Aparelhos conectados → Conectar um aparelho → escaneie o QR abaixo:
+                </p>
+                <img
+                  :src="baileysQrDataUrl || inbox.provider_config.qr_data_url"
+                  alt="QR Code WhatsApp"
+                  class="w-48 h-48 border border-n-weak rounded-lg"
+                />
+              </div>
+              <p v-else class="text-sm text-n-slate-11">
+                Nenhum QR code disponível. Clique em "Gerar QR code" para iniciar a conexão.
+              </p>
+              <div class="flex gap-2 mt-3">
+                <NextButton
+                  :disabled="baileysQrLoading"
+                  @click="baileysRefreshQr"
+                >
+                  {{ baileysQrLoading ? 'Carregando...' : 'Atualizar QR code' }}
+                </NextButton>
+                <NextButton
+                  :disabled="isBaileysConnecting"
+                  @click="baileysConnect"
+                >
+                  {{ isBaileysConnecting ? 'Reconectando...' : 'Reconectar' }}
+                </NextButton>
+              </div>
+            </div>
+          </div>
+        </SettingsFieldSection>
+      </template>
+
       <!-- Embedded Signup Section -->
-      <template v-if="isEmbeddedSignupWhatsApp">
+      <template v-else-if="isEmbeddedSignupWhatsApp">
         <SettingsFieldSection
           :label="$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_WEBHOOK_TITLE')"
           :help-text="
@@ -415,7 +500,7 @@ export default {
       </template>
 
       <!-- Manual Setup Section -->
-      <template v-else-if="!isEmbeddedSignupWhatsApp">
+      <template v-else-if="!isEmbeddedSignupWhatsApp && inbox.provider !== 'baileys'">
         <SettingsFieldSection
           :label="$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_WEBHOOK_TITLE')"
           :help-text="
@@ -471,6 +556,7 @@ export default {
         :inbox="inbox"
       />
       <SettingsFieldSection
+        v-if="inbox.provider !== 'baileys'"
         :label="$t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_TEMPLATES_SYNC_TITLE')"
         :help-text="
           $t('INBOX_MGMT.SETTINGS_POPUP.WHATSAPP_TEMPLATES_SYNC_SUBHEADER')
