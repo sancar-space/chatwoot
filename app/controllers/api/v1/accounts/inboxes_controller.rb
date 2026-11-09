@@ -77,6 +77,26 @@ class Api::V1::Accounts::InboxesController < Api::V1::Accounts::BaseController
     head :ok
   end
 
+  def baileys_qr
+    channel = @inbox.channel
+    return head :unprocessable_entity unless channel.is_a?(Channel::Whatsapp) && channel.provider == 'baileys'
+
+    result = Whatsapp::Providers::WhatsappBaileysService.new(whatsapp_channel: channel).fetch_qr
+    render json: result
+  rescue StandardError => e
+    render json: { error: e.message }, status: :service_unavailable
+  end
+
+  def baileys_connect
+    channel = @inbox.channel
+    return head :unprocessable_entity unless channel.is_a?(Channel::Whatsapp) && channel.provider == 'baileys'
+
+    Whatsapp::Providers::WhatsappBaileysService.new(whatsapp_channel: channel).setup_channel_provider
+    head :ok
+  rescue StandardError => e
+    render json: { error: e.message }, status: :service_unavailable
+  end
+
   def destroy
     ::DeleteObjectJob.perform_later(@inbox, Current.user, request.ip) if @inbox.present?
     render status: :ok, json: { message: I18n.t('messages.inbox_deletetion_response') }
