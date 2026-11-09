@@ -5,6 +5,7 @@ import { useI18n, I18nT } from 'vue-i18n';
 import Twilio from './Twilio.vue';
 import ThreeSixtyDialogWhatsapp from './360DialogWhatsapp.vue';
 import CloudWhatsapp from './CloudWhatsapp.vue';
+import BaileysWhatsapp from './BaileysWhatsapp.vue';
 import WhatsappManualSetup from './WhatsappManualSetup.vue';
 import WhatsappEmbeddedSignup from './WhatsappEmbeddedSignup.vue';
 import WhatsappAccessRequestDialog from '../components/WhatsappAccessRequestDialog.vue';
@@ -29,6 +30,7 @@ const {
 const PROVIDER_TYPES = {
   WHATSAPP: 'whatsapp',
   TWILIO: 'twilio',
+  BAILEYS: 'baileys',
   WHATSAPP_CLOUD: 'whatsapp_cloud',
   WHATSAPP_EMBEDDED: 'whatsapp_embedded',
   WHATSAPP_MANUAL: 'whatsapp_manual',
@@ -76,6 +78,13 @@ const shouldShowEmbeddedSignupAccessRequest = computed(() => {
 });
 
 const availableProviders = computed(() => [
+  {
+    key: PROVIDER_TYPES.BAILEYS,
+    title: 'WhatsApp via QR Code',
+    description:
+      'Conecte um número de WhatsApp escaneando um QR Code. Sem custo de API.',
+    icon: 'i-woot-whatsapp',
+  },
   {
     key: PROVIDER_TYPES.WHATSAPP,
     title: t('INBOX_MGMT.ADD.WHATSAPP.PROVIDERS.WHATSAPP_CLOUD'),
@@ -214,7 +223,7 @@ const requestEmbeddedSignupAccess = () => {
         </p>
       </div>
 
-      <div class="flex gap-6 justify-start">
+      <div class="flex gap-6 justify-start flex-wrap">
         <ChannelSelector
           v-for="provider in availableProviders"
           :key="provider.key"
@@ -228,7 +237,12 @@ const requestEmbeddedSignupAccess = () => {
 
     <div v-else-if="showConfiguration">
       <div class="px-6 py-5 rounded-2xl border border-n-weak">
-        <div v-if="shouldShowWhatsappEmbeddedSignup">
+        <!-- Baileys (QR Code) provider -->
+        <BaileysWhatsapp
+          v-if="selectedProvider === PROVIDER_TYPES.BAILEYS"
+        />
+
+        <div v-else-if="shouldShowWhatsappEmbeddedSignup">
           <WhatsappEmbeddedSignup
             :is-disabled="isWhatsappEmbeddedSignupDisabled"
             :show-restriction-alert="isWhatsappEmbeddedSignupDisabled"
