@@ -16,7 +16,34 @@ class Webhooks::WhatsappController < ActionController::API
     head :ok
   end
 
+  def process_baileys_payload
+    channel = Channel::Whatsapp.find_by(phone_number: params[:phone_number])
+    return head :not_found if channel.blank?
+    return head :unprocessable_entity if channel.provider != 'baileys'
+
+    event = baileys_params[:event].to_s
+    data = baileys_params[:data] || {}
+
+    case event
+    when 'qr.updated', 'connection.update'
+      Whatsapp::BaileysConnectionUpdateService.new(channel: channel, event: event, data: data).perform
+    when 'message.received'
+      Whatsapp::IncomingMessageBaileysService.new(inbox: channel.inbox, params: baileys_params).perform
+    else
+      Rails.logger.info "[BAILEYS] Unhandled event: #{event}"
+    end
+
+    head :ok
+  rescue StandardError => e
+    Rails.logger.error "[BAILEYS] Webhook processing error: #{e.message}"
+    head :internal_server_error
+  end
+
   private
+
+  def baileys_params
+    params.permit!.to_h.with_indifferent_access
+  end
 
   def tracking_events_only?
     return false unless params[:object] == 'whatsapp_business_account'
