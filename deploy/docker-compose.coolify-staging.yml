@@ -27,7 +27,7 @@
 
 services:
   rails:
-    image: 'chatwoot/chatwoot:v4.19.0'
+    image: 'ghcr.io/sancar-space/chatwoot:latest'
     pull_policy: always
     restart: unless-stopped
     depends_on:
@@ -74,7 +74,7 @@ services:
       start_period: 120s
 
   sidekiq:
-    image: 'chatwoot/chatwoot:v4.19.0'
+    image: 'ghcr.io/sancar-space/chatwoot:latest'
     pull_policy: always
     restart: unless-stopped
     depends_on:
@@ -107,7 +107,7 @@ services:
       - BAILEYS_PROVIDER_USE_INTERNAL_HOST_URL=true
       - MAILER_SENDER_EMAIL=${MAILER_SENDER_EMAIL:-stella@sancar.space}
       - RESEND_API_KEY=${RESEND_API_KEY:-}
-    entrypoint: docker/entrypoints/sidekiq.sh
+    entrypoint: docker/entrypoints/rails.sh
     command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
     healthcheck:
       test: ['CMD-SHELL', 'ps aux | grep [s]idekiq | grep -qv entrypoints']
