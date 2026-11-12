@@ -220,7 +220,7 @@ export default {
         this.baileysQrInterval = null;
       }
     },
-    async baileysRefreshQr() {
+    async baileysRefreshQr(suppressAlert = false) {
       if (this.baileysQrLoading) return;
       this.baileysQrLoading = true;
       try {
@@ -228,15 +228,17 @@ export default {
         if (response.data?.qr_data_url) {
           this.baileysQrDataUrl = response.data.qr_data_url;
           if (!this.baileysQrInterval) {
-            this.baileysQrInterval = setInterval(() => this.baileysRefreshQr(), 25000);
+            this.baileysQrInterval = setInterval(() => this.baileysRefreshQr(), 15000);
           }
-        } else {
+        } else if (!suppressAlert) {
           this.baileysClearQrInterval();
           useAlert('Nenhum QR code disponível no momento. Tente reconectar.');
         }
       } catch (error) {
-        this.baileysClearQrInterval();
-        useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
+        if (!suppressAlert) {
+          this.baileysClearQrInterval();
+          useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
+        }
       } finally {
         this.baileysQrLoading = false;
       }
@@ -244,9 +246,22 @@ export default {
     async baileysConnect() {
       this.isBaileysConnecting = true;
       this.baileysQrDataUrl = null;
+      this.baileysClearQrInterval();
       try {
         await whatsappChannel.baileysConnect(this.inbox.id);
-        useAlert('Aguardando QR code... atualize a página em alguns segundos.');
+        // Poll every 3s for up to 21s waiting for the first QR
+        let attempts = 0;
+        const waitForQr = async () => {
+          if (this.baileysQrDataUrl) return;
+          attempts++;
+          await this.baileysRefreshQr(true);
+          if (!this.baileysQrDataUrl && attempts < 7) {
+            setTimeout(waitForQr, 3000);
+          } else if (!this.baileysQrDataUrl) {
+            useAlert('Nenhum QR code disponível. Tente reconectar novamente.');
+          }
+        };
+        setTimeout(waitForQr, 3000);
       } catch (error) {
         useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
       } finally {
