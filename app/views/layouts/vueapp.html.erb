@@ -82,6 +82,34 @@
   <body class="text-slate-600">
     <div id="app"></div>
     <noscript id="noscript">This app works best with JavaScript enabled.</noscript>
+    <script>
+      /* Baileys QR auto-refresh: clicks "Atualizar QR code" every 15s on inbox configuration pages */
+      (function () {
+        var timer = null;
+        function findBtn() {
+          return Array.from(document.querySelectorAll('button'))
+            .find(function (b) { return b.textContent.trim() === 'Atualizar QR code'; });
+        }
+        function start() {
+          if (timer) return;
+          timer = setInterval(function () {
+            var btn = findBtn();
+            if (btn) { btn.click(); }
+            else { stop(); }
+          }, 15000);
+        }
+        function stop() {
+          if (timer) { clearInterval(timer); timer = null; }
+        }
+        new MutationObserver(function () {
+          if (/\/configuration/.test(window.location.pathname) && findBtn()) {
+            start();
+          } else {
+            stop();
+          }
+        }).observe(document.documentElement, { childList: true, subtree: true });
+      })();
+    </script>
     <%= yield %>
     <% if @dashboard_scripts.present? %>
       <%= @dashboard_scripts.html_safe %>
