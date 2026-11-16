@@ -83,30 +83,34 @@
     <div id="app"></div>
     <noscript id="noscript">This app works best with JavaScript enabled.</noscript>
     <script>
-      /* Baileys QR auto-refresh: clicks "Atualizar QR code" every 15s on inbox configuration pages */
+      /* Baileys QR auto-refresh: clicks "Atualizar QR code" every 20s on inbox configuration pages.
+         Only clicks if the button is enabled (not disabled/loading) to avoid flickering. */
       (function () {
         var timer = null;
         function findBtn() {
-          return Array.from(document.querySelectorAll('button'))
-            .find(function (b) { return b.textContent.trim() === 'Atualizar QR code'; });
+          var btns = Array.from(document.querySelectorAll('button'));
+          return btns.find(function (b) {
+            return b.textContent.trim() === 'Atualizar QR code' && !b.disabled;
+          });
+        }
+        function onPage() {
+          return /\/configuration/.test(window.location.pathname);
+        }
+        function tick() {
+          if (!onPage()) { stop(); return; }
+          var btn = findBtn();
+          if (btn) { btn.click(); }
         }
         function start() {
           if (timer) return;
-          timer = setInterval(function () {
-            var btn = findBtn();
-            if (btn) { btn.click(); }
-            else { stop(); }
-          }, 15000);
+          timer = setInterval(tick, 20000);
         }
         function stop() {
           if (timer) { clearInterval(timer); timer = null; }
         }
         new MutationObserver(function () {
-          if (/\/configuration/.test(window.location.pathname) && findBtn()) {
-            start();
-          } else {
-            stop();
-          }
+          if (onPage() && findBtn()) { start(); }
+          else { stop(); }
         }).observe(document.documentElement, { childList: true, subtree: true });
       })();
     </script>
