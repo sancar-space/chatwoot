@@ -68,6 +68,11 @@ export default {
     isForwardingEnabled() {
       return !!this.inbox.forwarding_enabled;
     },
+    baileysConnectLink() {
+      const base = window.baileysConnectUrl || '';
+      if (!base || !this.isAPIInbox) return '';
+      return `${base}/connect/${this.inbox.inbox_identifier || ''}`;
+    },
   },
   watch: {
     inbox() {
@@ -326,6 +331,21 @@ export default {
     </SettingsAccordion>
   </div>
   <div v-else-if="isAPIInbox">
+    <SettingsFieldSection
+      v-if="baileysConnectLink"
+      label="WhatsApp"
+      help-text="Conecte ou reconecte um número via QR Code ou código de emparelhamento."
+    >
+      <a
+        :href="baileysConnectLink"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
+      >
+        Conectar / Reconectar WhatsApp
+      </a>
+    </SettingsFieldSection>
+
     <SettingsFieldSection
       :label="$t('INBOX_MGMT.SETTINGS_POPUP.INBOX_IDENTIFIER')"
       :help-text="$t('INBOX_MGMT.SETTINGS_POPUP.INBOX_IDENTIFIER_SUB_TEXT')"

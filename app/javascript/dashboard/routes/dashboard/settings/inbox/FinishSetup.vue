@@ -13,6 +13,8 @@ import { useAlert } from 'dashboard/composables';
 import { useInbox } from 'dashboard/composables/useInbox';
 import { INBOX_TYPES } from 'dashboard/helper/inbox';
 
+const baileysConnectUrl = window.baileysConnectUrl || '';
+
 const { t } = useI18n();
 const route = useRoute();
 const store = useStore();
@@ -40,7 +42,13 @@ const {
   isATelegramChannel,
   isATwilioChannel,
   isATwilioSMSChannel,
+  isAPIInbox,
 } = useInbox(route.params.inbox_id);
+
+const baileysConnectLink = computed(() => {
+  if (!baileysConnectUrl || !isAPIInbox.value) return ''
+  return `${baileysConnectUrl}/connect/${currentInbox.value?.inbox_identifier || currentInbox.value?.channel_id || ''}`
+});
 
 const hasDuplicateInstagramInbox = computed(() => {
   const instagramId = currentInbox.value.instagram_id;
@@ -329,6 +337,25 @@ watch(
               class="rounded-lg size-48 dark:invert"
             />
           </div>
+        </div>
+        <div
+          v-if="isAPIInbox && baileysConnectLink"
+          class="flex flex-col gap-3 items-center mt-8"
+        >
+          <p class="mt-2 text-sm font-medium text-n-slate-11">
+            Conectar ao WhatsApp
+          </p>
+          <p class="mt-1 text-sm text-n-slate-9">
+            Acesse o link abaixo para conectar um número via QR Code ou código de emparelhamento.
+          </p>
+          <a
+            :href="baileysConnectLink"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            Conectar WhatsApp
+          </a>
         </div>
         <div class="flex gap-2 justify-center mt-4">
           <router-link

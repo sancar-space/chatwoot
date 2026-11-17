@@ -68,6 +68,7 @@
         browser_name: '<%= browser.name %>',
       }
       window.errorLoggingConfig = '<%= ENV.fetch('SENTRY_FRONTEND_DSN', '') || ENV.fetch('SENTRY_DSN', '') %>'
+      window.baileysConnectUrl = '<%= ENV.fetch('BAILEYS_PROVIDER_PUBLIC_URL', '') %>'
     </script>
     <% if @global_config['CLOUD_ANALYTICS_TOKEN'].present? %>
     <script>
