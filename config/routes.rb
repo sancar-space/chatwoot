@@ -339,6 +339,10 @@ Rails.application.routes.draw do
             post :register_webhook, on: :member
             post :reset_secret, on: :member
             post :rotate_hmac_token, on: :member
+            post :recheck_whatsapp_number, on: :member
+            post :import_whatsapp_session, on: :member
+            post :on_whatsapp, on: :member
+            resources :session_providers, only: [:index]
             if ChatwootApp.enterprise?
               resource :conference, only: %i[create destroy], controller: 'conference' do
                 get :token, on: :member
@@ -717,6 +721,8 @@ Rails.application.routes.draw do
   post 'webhooks/sms/:phone_number', to: 'webhooks/sms#process_payload'
   get 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#verify'
   post 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#process_payload'
+  post 'webhooks/whatsapp/session/uazapi/:channel_id/:webhook_token', to: 'webhooks/whatsapp/uazapi#process_payload'
+  post 'webhooks/whatsapp/zapi/:channel_id/:webhook_token', to: 'webhooks/whatsapp/zapi#process_payload'
   get 'webhooks/instagram', to: 'webhooks/instagram#verify'
   post 'webhooks/instagram', to: 'webhooks/instagram#events'
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
