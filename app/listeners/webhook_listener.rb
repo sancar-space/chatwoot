@@ -39,7 +39,9 @@ class WebhookListener < BaseListener
     return unless message.webhook_sendable?
 
     payload = message.webhook_data.merge(event: __method__.to_s)
-    deliver_webhook_payloads(payload, inbox)
+    # Only notify account webhooks on update — do NOT re-trigger api_inbox webhooks
+    # (Channel::Api / Evolution API), which would cause duplicate message delivery.
+    deliver_account_webhooks(payload, inbox.account)
   end
 
   def webwidget_triggered(event)
